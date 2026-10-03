@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>接待 Check-in</title>
+<style>
+:root{--bg:#f6f3ee;--card:#fff;--ink:#23201c;--mute:#7a736a;--line:#e5dfd6;--accent:#8a5a44;--ok:#2f7d4f;--okbg:#e6f3ea;--gift:#b4761f;--giftbg:#fbf0dc;--warn:#b3402f;--pres:#7a4fa3;--presbg:#efe6f7}
+@media (prefers-color-scheme:dark){:root{--bg:#171513;--card:#211e1b;--ink:#f1ece4;--mute:#a39a8e;--line:#35302b;--accent:#d49a7e;--ok:#6fcf97;--okbg:#1d3326;--gift:#f0b45a;--giftbg:#3a2d14;--warn:#ff8a78;--pres:#c9a2ee;--presbg:#32233f}}
+[hidden]{display:none!important}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,"PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.02em}
+.sync{font-size:12px;color:var(--mute)}
+.sync.bad{color:var(--warn)}
+.stats{display:flex;gap:8px;margin:8px 0}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.stat b{display:block;font-size:18px;line-height:1.1}
+.stat span{font-size:12px;color:var(--mute)}
+.bar{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar.g i{background:var(--gift)}
+.bar.p i{background:var(--pres)}
+#q{width:100%;font:inherit;font-size:18px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);outline:none}
+#q:focus{border-color:var(--accent)}
+.tabs{display:flex;gap:6px;margin-top:8px;overflow-x:auto}
+.tab{flex:none;font:inherit;font-size:14px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.tab[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{padding:10px 16px 80px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:8px 12px}
+.name{font-size:18px;font-weight:700}
+.name small{font-weight:400;color:var(--mute);font-size:14px;margin-left:6px}
+.meta{font-size:13px;color:var(--mute);margin-top:2px}
+.tbl{align-self:start;text-align:center;min-width:64px;background:var(--accent);color:#fff;border-radius:12px;padding:6px 10px}
+.tbl small{display:block;font-size:11px;opacity:.85}
+.tbl b{font-size:24px;line-height:1.05}
+.tbl.none{background:var(--line);color:var(--mute)}
+.btns{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.btn{font:inherit;font-size:15px;font-weight:600;padding:12px 8px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--ink)}
+.btn.on.arr{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.btn.on.gift{background:var(--giftbg);border-color:var(--gift);color:var(--gift)}
+.btn.on.pres{background:var(--presbg);border-color:var(--pres);color:var(--pres)}
+.btn.pending{opacity:.55}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--line);color:var(--mute);margin-right:4px}
+.group h2{font-size:15px;margin:16px 0 8px;display:flex;justify-content:space-between}
+.empty{text-align:center;color:var(--mute);padding:40px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;display:none}
+.lock{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;z-index:10}
+.lock form{width:100%;max-width:320px;display:grid;gap:10px}
+.lock input{font:inherit;font-size:20px;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);text-align:center}
+.lock button{font:inherit;font-size:17px;padding:12px;border-radius:12px;border:0;background:var(--accent);color:#fff}
+.demo{background:var(--giftbg);color:var(--gift);font-size:12px;text-align:center;padding:4px}
+</style>
+</head>
+<body>
+<div id="lock" class="lock" hidden>
+  <form id="lockform"><h1>接待 Check-in</h1>
+    <input id="pin" type="password" inputmode="text" autocomplete="off" placeholder="輸入接待密碼" required>
+    <button>進入</button><div id="lockmsg" class="sync bad"></div></form>
+</div>
+<div id="demo" class="demo" hidden>示範模式（假資料，不會寫入 Google Sheet）</div>
+<header>
+  <div class="top"><h1>💍 接待 Check-in</h1><span id="sync" class="sync">連線中…</span></div>
+  <div class="stats">
+    <div class="stat"><b id="sArr">0</b><span id="sArrL">已到</span><div class="bar"><i id="bArr"></i></div></div>
+    <div class="stat"><b id="sGift">0</b><span id="sGiftL">已收禮金</span><div class="bar g"><i id="bGift"></i></div></div>
+    <div class="stat"><b id="sPres">0</b><span id="sPresL">已收禮物</span><div class="bar p"><i id="bPres"></i></div></div>
+  </div>
+  <input id="q" type="search" placeholder="搜尋姓名／暱稱／檯號" autocomplete="off" enterkeyhint="search">
+  <div class="tabs" id="tabs">
+    <button class="tab" data-v="all" aria-pressed="true">全部</button>
+    <button class="tab" data-v="noarr" aria-pressed="false">未到</button>
+    <button class="tab" data-v="nogift" aria-pressed="false">未收禮金</button>
+    <button class="tab" data-v="nopres" aria-pressed="false">未收禮物</button>
+    <button class="tab" data-v="tables" aria-pressed="false">按檯</button>
+  </div>
+</header>
+<main id="list"></main>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ===== 設定：部署 Apps Script 後，將 Web app URL 貼落嚟 ===== */
+const API_URL = "https://script.google.com/macros/s/AKfycbxEllceV3VBt8H3qpGtfN99EePVeyd5bkHTA9svSXNH_QDKKAYFpAKrcPhrsmAPK9rF/exec";            // 例如 https://script.google.com/macros/s/AKfy.../exec
+const POLL_MS = 8000;
+/* ============================================================ */
+
+const $ = s => document.querySelector(s);
+const isTrue = v => v === true || v === "TRUE" || v === "true" || v === "✓" || v === 1;
+const params = new URLSearchParams(location.search);
+const DEMO = !API_URL || params.has("demo");
+let token = ""; try { token = localStorage.getItem("ci_token") || ""; } catch (e) {}
+let guests = [], view = "all", q = "", lastOk = 0, queue = [];
+try { queue = JSON.parse(localStorage.getItem("ci_queue") || "[]"); } catch (e) {}
+const pendingKeys = new Set();
+
+const DEMO_DATA = [
+  ["D001","示範 陳大文","Ben",2,"3","男家","大學同學"],["D002","示範 李小明","Ming",1,"3","男家","中學"],
+  ["D003","示範 黃美玲","Mei",2,"7","女家","同事"],["D004","示範 張志強","Keith",1,"","男家","教會"],
+  ["D005","示範 林小芬","芬芬",3,"12","雙方","學友社"],["D006","示範 周國輝","輝哥",1,"12","男家","童軍"],
+  ["D007","示範 何嘉欣","Kelly",1,"","女家","小學"]
+].map(r => ({id:r[0],"姓名":r[1],"暱稱":r[2],"人數":r[3],"檯號":r[4],"所屬方":r[5],"關係":r[6],"已到":false,"禮金":false,"禮物":false,"備註":""}));
+
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",2200)}
+function setSync(ok,msg){const s=$("#sync");s.className="sync"+(ok?"":" bad");s.textContent=msg}
+
+async function api(body){
+  if (DEMO) return {ok:true};
+  const opt = body ? {method:"POST",body:JSON.stringify({...body,token}),headers:{"Content-Type":"text/plain;charset=utf-8"}} : {};
+  const url = body ? API_URL : API_URL + "?action=list&token=" + encodeURIComponent(token);
+  const r = await fetch(url,opt); return r.json();
+}
+
+async function load(){
+  if (DEMO){ if(!guests.length) guests = DEMO_DATA.map(g=>({...g})); setSync(true,"示範資料"); render(); return; }
+  try{
+    const r = await api();
+    if (!r.ok){ if (r.error==="auth") return askPin("密碼唔啱"); throw new Error(r.error); }
+    // 保留尚未同步嘅本機改動
+    const incoming = r.guests;
+    incoming.forEach(g=>{ queue.forEach(op=>{ if(op.id===g.id) g[op.field]=op.value }) });
+    guests = incoming; lastOk = Date.now();
+    setSync(true, queue.length ? `同步中（${queue.length}）` : "已同步 "+new Date().toLocaleTimeString("zh-HK",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+    render();
+  }catch(e){ setSync(false, "離線／連線失敗" + (queue.length?`（${queue.length} 項待上傳）`:"")); }
+}
+
+async function flush(){
+  if (DEMO || !queue.length) return;
+  while (queue.length){
+    const op = queue[0];
+    try{
+      const r = await api({action:"set",id:op.id,field:op.field,value:op.value});
+      if (!r.ok && r.error==="auth") return askPin("密碼唔啱");
+      if (!r.ok) throw new Error(r.error);
+      queue.shift(); persistQueue();
+    }catch(e){ setSync(false,`未能上傳（${queue.length} 項待上傳）`); return; }
+  }
+}
+function persistQueue(){ try{localStorage.setItem("ci_queue",JSON.stringify(queue))}catch(e){} }
+
+function toggle(id, field){
+  const g = guests.find(x=>x.id===id); if(!g) return;
+  const v = !isTrue(g[field]); g[field]=v;
+  queue = queue.filter(o=>!(o.id===id&&o.field===field)); queue.push({id,field,value:v}); persistQueue();
+  render(); flush().then(load);
+}
+
+function norm(s){return String(s||"").toLowerCase().replace(/\s+/g,"")}
+function match(g){
+  if(!q) return true;
+  const hay = norm([g["姓名"],g["暱稱"],g["關係"],g["檯號"] ? "檯"+g["檯號"] : ""].join(" "));
+  return q.split(/\s+/).every(t => hay.includes(norm(t)) || norm(g["檯號"])===norm(t));
+}
+function view_ok(g){
+  if(view==="noarr") return !isTrue(g["已到"]);
+  if(view==="nogift") return !isTrue(g["禮金"]);
+  if(view==="nopres") return !isTrue(g["禮物"]);
+  return true;
+}
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function card(g){
+  const arr=isTrue(g["已到"]), gift=isTrue(g["禮金"]), pres=isTrue(g["禮物"]), t=String(g["檯號"]||"").trim();
+  const pend = queue.some(o=>o.id===g.id) ? " pending":"";
+  return `<div class="card">
+    <div><div class="name">${esc(g["姓名"])}${g["暱稱"]?`<small>${esc(g["暱稱"])}</small>`:""}</div>
+    <div class="meta"><span class="tag">${esc(g["人數"])||1} 位</span>${esc(g["所屬方"])} ${g["關係"]?"· "+esc(g["關係"]):""}</div>
+    ${g["備註"]?`<div class="meta">📝 ${esc(g["備註"])}</div>`:""}</div>
+    <div class="tbl ${t?"":"none"}"><small>檯號</small><b>${t?esc(t):"—"}</b></div>
+    <div class="btns">
+      <button class="btn arr ${arr?"on":""}${pend}" data-id="${esc(g.id)}" data-f="已到">${arr?"✓ 已到":"到場"}</button>
+      <button class="btn gift ${gift?"on":""}${pend}" data-id="${esc(g.id)}" data-f="禮金">${gift?"✓ 禮金":"禮金"}</button>
+      <button class="btn pres ${pres?"on":""}${pend}" data-id="${esc(g.id)}" data-f="禮物">${pres?"✓ 禮物":"禮物"}</button>
+    </div></div>`;
+}
+
+function render(){
+  const tot = guests.reduce((a,g)=>a+(+g["人數"]||1),0);
+  const arr = guests.filter(g=>isTrue(g["已到"])).reduce((a,g)=>a+(+g["人數"]||1),0);
+  const gift = guests.filter(g=>isTrue(g["禮金"])).length;
+  $("#sArr").textContent = `${arr} / ${tot}`; $("#sArrL").textContent="已到（人）";
+  $("#bArr").style.width = tot? (arr/tot*100)+"%":"0";
+  $("#sGift").textContent = `${gift} / ${guests.length}`; $("#sGiftL").textContent="禮金（項）";
+  $("#bGift").style.width = guests.length? (gift/guests.length*100)+"%":"0";
+  const pres = guests.filter(g=>isTrue(g["禮物"])).length;
+  $("#sPres").textContent = `${pres} / ${guests.length}`; $("#sPresL").textContent="已收禮物（項）";
+  $("#bPres").style.width = guests.length? (pres/guests.length*100)+"%":"0";
+
+  const L = $("#list"); const list = guests.filter(g=>match(g)&&view_ok(g));
+  if(!list.length){ L.innerHTML=`<div class="empty">${guests.length?"搵唔到，試下輸入名嘅一部分":"載入緊／未有名單"}</div>`; return; }
+  if(view==="tables"){
+    const m={}; list.forEach(g=>{const k=String(g["檯號"]||"").trim()||"未安排檯號";(m[k]=m[k]||[]).push(g)});
+    const keys=Object.keys(m).sort((a,b)=>{const x=parseFloat(a),y=parseFloat(b);return isNaN(x)&&isNaN(y)?a.localeCompare(b):isNaN(x)?1:isNaN(y)?-1:x-y});
+    L.innerHTML = keys.map(k=>{const a=m[k].filter(g=>isTrue(g["已到"])).length;return `<div class="group"><h2><span>${k==="未安排檯號"?k:"第 "+esc(k)+" 檯"}</span><span class="sync">${a}/${m[k].length} 已到</span></h2>${m[k].map(card).join("")}</div>`}).join("");
+  } else {
+    L.innerHTML = list.slice(0,60).map(card).join("") + (list.length>60?`<div class="empty">仲有 ${list.length-60} 項，請輸入更多字搜尋</div>`:"");
+  }
+}
+
+function askPin(msg){ $("#lock").hidden=false; $("#lockmsg").textContent=msg||""; $("#pin").focus(); }
+$("#lockform").addEventListener("submit",e=>{e.preventDefault();token=$("#pin").value.trim();try{localStorage.setItem("ci_token",token)}catch(_){}
+  $("#lock").hidden=true; load().then(flush);});
+$("#q").addEventListener("input",e=>{q=e.target.value.trim();render()});
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(!b)return;view=b.dataset.v;document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",t===b));render()});
+$("#list").addEventListener("click",e=>{const b=e.target.closest(".btn");if(b)toggle(b.dataset.id,b.dataset.f)});
+window.addEventListener("online",()=>flush().then(load));
+
+if (DEMO) $("#demo").hidden=false;
+if (!DEMO && !token) askPin(""); else { load().then(flush); }
+setInterval(()=>{ if(document.visibilityState==="visible" && (DEMO||token)) flush().then(load); }, POLL_MS);
+</script>
+</body>
+</html>
