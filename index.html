@@ -43,7 +43,21 @@ main{padding:10px 16px 80px;max-width:760px;margin:0 auto}
 .btn.on.arr{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
 .btn.on.gift{background:var(--giftbg);border-color:var(--gift);color:var(--gift)}
 .btn.on.pres{background:var(--presbg);border-color:var(--pres);color:var(--pres)}
+.btn.on.inv{background:var(--presbg);border-color:var(--pres);color:var(--pres)}
+.btn.on.park{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.btn.on.pre{background:var(--giftbg);border-color:var(--gift);color:var(--gift)}
+.btns2{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.btns2 .btn{font-size:14px;padding:9px 6px}
+.prepaid{grid-column:1/-1;background:var(--giftbg);color:var(--gift);border:1.5px solid var(--gift);border-radius:10px;padding:6px 10px;font-weight:700;font-size:15px;text-align:center}
 .btn.pending{opacity:.55}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:520px;background:var(--card);border-radius:18px 18px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));display:grid;gap:12px}
+.sheet .msg{font-size:19px;font-weight:700;text-align:center}
+.sheet .sub{font-size:14px;color:var(--warn);text-align:center;font-weight:600}
+.sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet button{font:inherit;font-size:18px;font-weight:700;padding:15px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--ink)}
+.sheet button.go{background:var(--accent);border-color:var(--accent);color:#fff}
+.sheet button.go.undo{background:var(--warn);border-color:var(--warn)}
 .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--line);color:var(--mute);margin-right:4px}
 .group h2{font-size:15px;margin:16px 0 8px;display:flex;justify-content:space-between}
 .empty{text-align:center;color:var(--mute);padding:40px 0}
@@ -75,11 +89,15 @@ main{padding:10px 16px 80px;max-width:760px;margin:0 auto}
     <button class="tab" data-v="noarr" aria-pressed="false">未到</button>
     <button class="tab" data-v="nogift" aria-pressed="false">未收禮金</button>
     <button class="tab" data-v="nopres" aria-pressed="false">未收禮物</button>
+    <button class="tab" data-v="noinv" aria-pressed="false">要派帖</button>
+    <button class="tab" data-v="nopark" aria-pressed="false">要泊車飛</button>
     <button class="tab" data-v="tables" aria-pressed="false">按檯</button>
   </div>
 </header>
 <main id="list"></main>
 <div id="toast" class="toast"></div>
+<div id="mask" class="mask" hidden><div class="sheet"><div id="cmsg" class="msg"></div><div id="csub" class="sub" hidden></div>
+<div class="row"><button id="cno">取消</button><button id="cyes" class="go">確認</button></div></div></div>
 
 <script>
 /* ===== 設定：部署 Apps Script 後，將 Web app URL 貼落嚟 ===== */
@@ -101,7 +119,7 @@ const DEMO_DATA = [
   ["D003","示範 黃美玲","Mei",2,"7","女家","同事"],["D004","示範 張志強","Keith",1,"","男家","教會"],
   ["D005","示範 林小芬","芬芬",3,"12","雙方","學友社"],["D006","示範 周國輝","輝哥",1,"12","男家","童軍"],
   ["D007","示範 何嘉欣","Kelly",1,"","女家","小學"]
-].map(r => ({id:r[0],"姓名":r[1],"暱稱":r[2],"人數":r[3],"檯號":r[4],"所屬方":r[5],"關係":r[6],"已到":false,"禮金":false,"禮物":false,"備註":""}));
+].map((r,i) => ({id:r[0],"姓名":r[1],"暱稱":r[2],"人數":r[3],"檯號":r[4],"所屬方":r[5],"關係":r[6],"已到":false,"禮金":false,"禮物":false,"需派帖":i%2===0,"派帖":false,"需泊車飛":i%3===0,"泊車飛":false,"預付禮金":i===2,"備註":""}));
 
 function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",2200)}
 function setSync(ok,msg){const s=$("#sync");s.className="sync"+(ok?"":" bad");s.textContent=msg}
@@ -141,12 +159,30 @@ async function flush(){
 }
 function persistQueue(){ try{localStorage.setItem("ci_queue",JSON.stringify(queue))}catch(e){} }
 
-function toggle(id, field){
+const LBL = {"已到":"到場","禮金":"已收禮金","禮物":"已收禮物","派帖":"已派帖","泊車飛":"已派泊車飛","預付禮金":"預付禮金"};
+function applyToggle(id, field){
   const g = guests.find(x=>x.id===id); if(!g) return;
   const v = !isTrue(g[field]); g[field]=v;
   queue = queue.filter(o=>!(o.id===id&&o.field===field)); queue.push({id,field,value:v}); persistQueue();
   render(); flush().then(load);
 }
+let pendingAct = null;
+function toggle(id, field){
+  const g = guests.find(x=>x.id===id); if(!g) return;
+  const on = isTrue(g[field]), name = g["姓名"]+(g["暱稱"]?"（"+g["暱稱"]+"）":"");
+  pendingAct = {id,field};
+  $("#cmsg").textContent = on ? `取消「${LBL[field]}」？\n${name}` : `${name}\n確認「${LBL[field]}」？`;
+  $("#cmsg").style.whiteSpace="pre-line";
+  const sub=$("#csub");
+  if (field==="禮金" && !on && isTrue(g["預付禮金"])){ sub.hidden=false; sub.textContent="⚠ 此賓客已預付禮金，毋須再收"; }
+  else if (field==="預付禮金" && !on){ sub.hidden=false; sub.textContent="標記後，接待會見到「已預付，毋須收」"; }
+  else sub.hidden=true;
+  $("#cyes").className = "go"+(on?" undo":""); $("#cyes").textContent = on?"確認取消":"確認";
+  $("#mask").hidden=false;
+}
+$("#cno").addEventListener("click",()=>{pendingAct=null;$("#mask").hidden=true});
+$("#mask").addEventListener("click",e=>{if(e.target.id==="mask"){pendingAct=null;$("#mask").hidden=true}});
+$("#cyes").addEventListener("click",()=>{const a=pendingAct;pendingAct=null;$("#mask").hidden=true;if(a)applyToggle(a.id,a.field)});
 
 function norm(s){return String(s||"").toLowerCase().replace(/\s+/g,"")}
 function match(g){
@@ -158,22 +194,31 @@ function view_ok(g){
   if(view==="noarr") return !isTrue(g["已到"]);
   if(view==="nogift") return !isTrue(g["禮金"]);
   if(view==="nopres") return !isTrue(g["禮物"]);
+  if(view==="noinv") return isTrue(g["需派帖"]) ? !isTrue(g["派帖"]) : false;
+  if(view==="nopark") return isTrue(g["需泊車飛"]) ? !isTrue(g["泊車飛"]) : false;
   return true;
 }
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function card(g){
   const arr=isTrue(g["已到"]), gift=isTrue(g["禮金"]), pres=isTrue(g["禮物"]), t=String(g["檯號"]||"").trim();
+  const needInv=isTrue(g["需派帖"]), needPark=isTrue(g["需泊車飛"]), inv=isTrue(g["派帖"]), park=isTrue(g["泊車飛"]), pre=isTrue(g["預付禮金"]);
   const pend = queue.some(o=>o.id===g.id) ? " pending":"";
   return `<div class="card">
     <div><div class="name">${esc(g["姓名"])}${g["暱稱"]?`<small>${esc(g["暱稱"])}</small>`:""}</div>
     <div class="meta"><span class="tag">${esc(g["人數"])||1} 位</span>${esc(g["所屬方"])} ${g["關係"]?"· "+esc(g["關係"]):""}</div>
     ${g["備註"]?`<div class="meta">📝 ${esc(g["備註"])}</div>`:""}</div>
     <div class="tbl ${t?"":"none"}"><small>檯號</small><b>${t?esc(t):"—"}</b></div>
+    ${pre?`<div class="prepaid">💰 已預付禮金 · 毋須收</div>`:""}
     <div class="btns">
       <button class="btn arr ${arr?"on":""}${pend}" data-id="${esc(g.id)}" data-f="已到">${arr?"✓ 已到":"到場"}</button>
-      <button class="btn gift ${gift?"on":""}${pend}" data-id="${esc(g.id)}" data-f="禮金">${gift?"✓ 禮金":"禮金"}</button>
+      <button class="btn gift ${gift?"on":""}${pend}" data-id="${esc(g.id)}" data-f="禮金">${gift?"✓ 禮金":pre?"已預付":"禮金"}</button>
       <button class="btn pres ${pres?"on":""}${pend}" data-id="${esc(g.id)}" data-f="禮物">${pres?"✓ 禮物":"禮物"}</button>
+    </div>
+    <div class="btns2">
+      ${needInv?`<button class="btn inv ${inv?"on":""}${pend}" data-id="${esc(g.id)}" data-f="派帖">${inv?"✓ 已派帖":"✉ 派帖"}</button>`:""}
+      ${needPark?`<button class="btn park ${park?"on":""}${pend}" data-id="${esc(g.id)}" data-f="泊車飛">${park?"✓ 已派車飛":"🅿 泊車飛"}</button>`:""}
+      <button class="btn pre ${pre?"on":""}${pend}" data-id="${esc(g.id)}" data-f="預付禮金">${pre?"✓ 預付":"標記預付"}</button>
     </div></div>`;
 }
 
